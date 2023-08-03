@@ -6,7 +6,7 @@ def get_index_price():
 
     if response.status_code == 200:
         data = response.json()
-        categories = []
+        categories = set()
         kz_data = []
         filter_data = []
         for row in data:
@@ -14,7 +14,7 @@ def get_index_price():
                 kz_data.append(row)
         
         for row in kz_data:
-            categories.append(row["termNames"][2])
+            categories.add(row["termNames"][2])
 
         for row in kz_data:
             unit_data = []
