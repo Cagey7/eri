@@ -141,8 +141,7 @@ class Automation:
             kz_data = []
             filter_data = []
             for row in data:
-                if row["terms"][0] != 741880:
-                    kz_data.append(row)
+                kz_data.append(row)
 
             for row in kz_data:
                 unit_data = []
@@ -180,9 +179,8 @@ class Automation:
             filter_data = []
             
             for row in data:
-                if row["terms"][0] != 741880:
-                    index_data.append(row)
-                    activities.add(row["termNames"][1])
+                index_data.append(row)
+                activities.add(row["termNames"][1])
 
             
 
@@ -229,9 +227,8 @@ class Automation:
 
         if response.status_code == 200:
             for row in data:
-                if row["terms"][0] != 741880:
-                    index_data.append(row)
-                    production.add(row["termNames"][1])
+                index_data.append(row)
+                production.add(row["termNames"][1])
 
             for row in index_data:
                 unit_data = []
@@ -279,10 +276,9 @@ class Automation:
 
             
             for row in data:
-                if row["terms"][0] != 741880:
-                    index_data.append(row)
-                    cities.add(row["termNames"][0])
-                    goods.add(row["termNames"][1])
+                index_data.append(row)
+                cities.add(row["termNames"][0])
+                goods.add(row["termNames"][1])
 
             for row in index_data:
                 unit_data = []
@@ -330,7 +326,8 @@ class Automation:
 
 
     def collect_data(self):
-        self.create_tables()
+        print("Идет загрузка...")
+        #self.create_tables()
         self.insert_gdp_data()
         self.insert_labour_efficiency()
         self.insert_industrial_production()
