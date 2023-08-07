@@ -347,3 +347,6 @@ class Automation:
         self.cur.close()
         self.conn.close()
 
+
+automation = Automation("statistics", "postgres", "123456")
+automation.collect_data()
