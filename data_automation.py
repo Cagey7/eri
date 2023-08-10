@@ -73,7 +73,7 @@ class Automation:
 
 
     def insert_labor_productivity_data(self):
-        url = 'https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=7&dics=67,915' 
+        url = 'https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=9&dics=67,915' 
         response = requests.post(url) 
 
 
@@ -96,6 +96,7 @@ class Automation:
             CREATE TABLE labor_productivity (
                 id SERIAL PRIMARY KEY,
                 created_at DATE,
+                description VARCHAR(150),
                 value BIGINT,
                 updated_at DATE,
                 economic_activity_id INT REFERENCES labor_productivity_activity_types(id),
@@ -120,7 +121,7 @@ class Automation:
             for row in kz_data:
                 unit_data = []
                 for period in row["periods"]:
-                    unit_data = [period["date"], period["value"], row["termNames"][1], row["termNames"][0]]
+                    unit_data = [period["date"], period["value"], period["name"], row["termNames"][1], row["termNames"][0]]
                     filter_data.append(unit_data)
             
             for element in regions:          
@@ -140,14 +141,15 @@ class Automation:
             for row in filter_data:
                 date = row[0]
                 value = row[1]
-                activity_name = row[2]
-                region_name = row[3]
+                description = row[2]
+                activity_name = row[3]
+                region_name = row[4]
                 insert_query = """
-                INSERT INTO labor_productivity (created_at, value, updated_at, economic_activity_id, region_id)
-                VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, CURRENT_DATE, (SELECT id FROM labor_productivity_activity_types WHERE name = %s), 
+                INSERT INTO labor_productivity (created_at, value, description, updated_at, economic_activity_id, region_id)
+                VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, CURRENT_DATE, (SELECT id FROM labor_productivity_activity_types WHERE name = %s), 
                 (SELECT id FROM labor_productivity_regions WHERE name = %s));
                 """
-                self.cur.execute(insert_query, (date, value, activity_name, region_name))
+                self.cur.execute(insert_query, (date, value, description, activity_name, region_name))
 
             self.conn.commit()
             print("Данный о производительности труда загружены.")
@@ -330,10 +332,10 @@ class Automation:
         
     def collect_data(self):
         print("Идет загрузка...")
-        self.insert_gdp_data()
+        #self.insert_gdp_data()
         self.insert_labor_productivity_data()
         self.insert_volume_index_industrial_data()
-        self.insert_pindex_simportant_consumer_goods_data()
+        #self.insert_pindex_simportant_consumer_goods_data()
         self.disconect_db()
         print("Загрузка завершена.")
 
