@@ -15,23 +15,9 @@ class Automation:
         self.conn = None
         self.cur = None
         self.db_connection()
-        table_regions = """
-        CREATE TABLE IF NOT EXISTS regions (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(200)
-        );
-        """
-        self.cur.execute(table_regions)
-        self.cur.execute("SELECT 1 FROM regions LIMIT 1;")
-        table_is_full = self.cur.fetchone()
-
-        if not table_is_full:
-            for element in regions:
-                insert_query = """
-                INSERT INTO regions (name)
-                VALUES (%s);
-                """
-                self.cur.execute(insert_query, (element,))
+        self.create_table("regions")
+        if not self.is_table_empty("regions"):
+            self.fill_table("regions", regions)
     
 
     def db_connection(self):
@@ -50,7 +36,8 @@ class Automation:
                 print("Ошибка во время подключения: ", e)
         else:
             print("Уже подлючено к базе данных.")
-    
+
+
     def get_response(self, url):
         response = requests.get(url)
         if response.status_code == 200:
@@ -58,27 +45,54 @@ class Automation:
         else:
             print(f"Ошибка запроса: {response.status_code}")
             print("Новая попытка")
-            sleep(2)
+            sleep(3)
             return self.get_response(url)
 
 
+    def create_table(self, table_name):
+        table = """
+        CREATE TABLE IF NOT EXISTS {} (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(200)
+        );
+        """.format(table_name)
+        self.cur.execute(table)
+    
+
+    def fill_table(self, table_name, item_list):
+        for item in item_list:
+            insert_query = """
+            INSERT INTO {} (name)
+            VALUES (%s);
+            """.format(table_name)
+            self.cur.execute(insert_query, (item,))
+
+
+    def is_table_empty(self, table_name):
+        self.cur.execute("SELECT 1 FROM {} LIMIT 1;".format(table_name))
+        return self.cur.fetchone()
+
+
     def insert_gdp(self):
-        response_data = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67").json()
+        urls = [{"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67").json(), 
+                "period":"Год"}, 
+                {"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=9&dics=67").json(), 
+                "period":"Квартал с накоплением"}]
         try:
             table_gdp = """
             CREATE TABLE IF NOT EXISTS gdp (
                 id SERIAL PRIMARY KEY,
                 created_at DATE,
-                value BIGINT,
+                value NUMERIC,
+                period VARCHAR(100),
                 description VARCHAR(200),
                 updated_at DATE,
                 region_id INT REFERENCES regions(id)
             );
             """
-
             insert_query = """
-            INSERT INTO gdp (created_at, value, description, updated_at, region_id)
-            VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, CURRENT_DATE, (SELECT id FROM regions WHERE name = %s));
+            INSERT INTO gdp (created_at, value, period, description, updated_at, region_id)
+            VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE, (SELECT id FROM regions WHERE name = %s));
             """
 
             self.cur.execute(table_gdp)
@@ -87,22 +101,22 @@ class Automation:
             latest_date = self.cur.fetchone()[0]
             latest_date = latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
 
-            data = [row for row in response_data]
-            filtered_data = []
+            for url in urls:
+                data = [row for row in url["response"]]
+                filtered_data = []
 
-            for row in data:
-                unit_data = []
-                for period in row["periods"]:
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = [period["date"], period["value"], period["name"], row["termNames"][0]]
-                        filtered_data.append(unit_data)
+                for row in data:
+                    unit_data = []
+                    for period in row["periods"]:
+                        date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
+                        if date_object > latest_date:
+                            unit_data = [period["date"], period["value"], url["period"], period["name"], row["termNames"][0]]
+                            filtered_data.append(unit_data)
 
-            insert_data = [(row[0], row[1], row[2], row[3]) for row in filtered_data]
-
-            self.cur.executemany(insert_query, insert_data)
-            self.conn.commit()
+                insert_data = [(row[0], row[1], row[2], row[3], row[4]) for row in filtered_data]
+                self.cur.executemany(insert_query, insert_data)
             
+            self.conn.commit()
             print("Данные о ВВП загружены.")
         except Exception as e:
             self.conn.rollback()
@@ -128,18 +142,13 @@ class Automation:
                 region_id INT REFERENCES regions(id)
             );
             """
-            table_economic_activity = """
-            CREATE TABLE IF NOT EXISTS labor_productivity_activity_types (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(200)
-            );
-            """
             insert_query = """
             INSERT INTO labor_productivity (created_at, value, period, description, updated_at, economic_activity_id, region_id)
             VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE, (SELECT id FROM labor_productivity_activity_types WHERE name = %s), 
             (SELECT id FROM regions WHERE name = %s));
             """
-            self.cur.execute(table_economic_activity)
+
+            self.create_table("labor_productivity_activity_types")
             self.cur.execute(table_labor_productivity)
 
             self.cur.execute("SELECT MAX(updated_at) FROM labor_productivity;")
@@ -155,16 +164,8 @@ class Automation:
                     data.append(row)
                     activities.add(row["termNames"][1])
                 
-                self.cur.execute("SELECT 1 FROM labor_productivity_activity_types LIMIT 1;")
-                table_is_full = self.cur.fetchone()
-
-                if not table_is_full:
-                    for activity in activities:
-                        insert_query_activities = """
-                        INSERT INTO labor_productivity_activity_types (name)
-                        VALUES (%s);
-                        """
-                        self.cur.execute(insert_query_activities, (activity,))
+                if not self.is_table_empty("labor_productivity_activity_types"):
+                    self.fill_table("labor_productivity_activity_types", activities)
 
                 for row in data:
                     unit_data = []
@@ -177,9 +178,8 @@ class Automation:
                 insert_data = [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in filtered_data]
                 self.cur.executemany(insert_query, insert_data)
 
-                self.conn.commit()
-                print("Данные об производительнсоти труда загружены")
-
+            self.conn.commit()
+            print("Данные об производительнсоти труда загружены")
         except Exception as e:
             self.conn.rollback()
             print("Произошла ошибка:", str(e))
@@ -210,7 +210,6 @@ class Automation:
 
     def collect_data_weeks(self):
         pass
-
 
 
 automation = Automation("statistics", "postgres", "123456")
