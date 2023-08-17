@@ -73,6 +73,12 @@ class Automation:
         return self.cur.fetchone()
 
 
+    def get_latest_updated_date(self, table_name):
+        self.cur.execute("SELECT MAX(updated_at) FROM gdp;".format(table_name))
+        latest_date = self.cur.fetchone()[0]
+        return latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
+
+
     def insert_gdp(self):
         urls = [{"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67").json(), 
                 "period":"Год"}, 
@@ -97,9 +103,7 @@ class Automation:
 
             self.cur.execute(table_gdp)
 
-            self.cur.execute("SELECT MAX(updated_at) FROM gdp;")
-            latest_date = self.cur.fetchone()[0]
-            latest_date = latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
+            latest_date = self.get_latest_updated_date("gdp")
 
             for url in urls:
                 data = [row for row in url["response"]]
@@ -151,9 +155,7 @@ class Automation:
             self.create_table("labor_productivity_activity_types")
             self.cur.execute(table_labor_productivity)
 
-            self.cur.execute("SELECT MAX(updated_at) FROM labor_productivity;")
-            latest_date = self.cur.fetchone()[0]
-            latest_date = latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
+            latest_date = self.get_latest_updated_date("labor_productivity")
 
             for url in urls:
                 activities = set()
