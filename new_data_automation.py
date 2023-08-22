@@ -15,9 +15,6 @@ class Automation:
         self.conn = None
         self.cur = None
         self.db_connection()
-        self.create_table("regions")
-        if not self.is_table_empty("regions"):
-            self.fill_table("regions", regions)
     
 
     def db_connection(self):
@@ -47,34 +44,10 @@ class Automation:
             print("Новая попытка")
             sleep(3)
             return self.get_response(url)
-
-
-    def create_table(self, table_name):
-        table = """
-        CREATE TABLE IF NOT EXISTS {} (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(200)
-        );
-        """.format(table_name)
-        self.cur.execute(table)
     
 
-    def fill_table(self, table_name, item_list):
-        for item in item_list:
-            insert_query = """
-            INSERT INTO {} (name)
-            VALUES (%s);
-            """.format(table_name)
-            self.cur.execute(insert_query, (item,))
-
-
-    def is_table_empty(self, table_name):
-        self.cur.execute("SELECT 1 FROM {} LIMIT 1;".format(table_name))
-        return self.cur.fetchone()
-
-
     def get_latest_updated_date(self, table_name):
-        self.cur.execute("SELECT MAX(updated_at) FROM gdp;".format(table_name))
+        self.cur.execute("SELECT MAX(updated_at) FROM {};".format(table_name))
         latest_date = self.cur.fetchone()[0]
         return latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
 
@@ -88,21 +61,21 @@ class Automation:
             table_gdp = """
             CREATE TABLE IF NOT EXISTS gdp (
                 id SERIAL PRIMARY KEY,
+                region VARCHAR(100),
                 created_at DATE,
                 value NUMERIC,
                 period VARCHAR(100),
                 description VARCHAR(200),
-                updated_at DATE,
-                region_id INT REFERENCES regions(id)
+                updated_at DATE
             );
             """
+
             insert_query = """
-            INSERT INTO gdp (created_at, value, period, description, updated_at, region_id)
-            VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE, (SELECT id FROM regions WHERE name = %s));
+            INSERT INTO gdp (region, created_at, value, period, description, updated_at)
+            VALUES (%s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
             """
 
             self.cur.execute(table_gdp)
-
             latest_date = self.get_latest_updated_date("gdp")
 
             for url in urls:
@@ -114,7 +87,7 @@ class Automation:
                     for period in row["periods"]:
                         date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
                         if date_object > latest_date:
-                            unit_data = [period["date"], period["value"], url["period"], period["name"], row["termNames"][0]]
+                            unit_data = [row["termNames"][0], period["date"], period["value"], url["period"], period["name"]]
                             filtered_data.append(unit_data)
 
                 insert_data = [(row[0], row[1], row[2], row[3], row[4]) for row in filtered_data]
@@ -137,44 +110,36 @@ class Automation:
             table_labor_productivity = """
             CREATE TABLE IF NOT EXISTS labor_productivity (
                 id SERIAL PRIMARY KEY,
+                region VARCHAR(100),
+                activity_type VARCHAR(100),
                 created_at DATE, 
                 value BIGINT,
                 period VARCHAR(100),
-                description VARCHAR(200),
-                updated_at DATE,
-                economic_activity_id INT REFERENCES labor_productivity_activity_types(id),
-                region_id INT REFERENCES regions(id)
+                description VARCHAR(100),
+                updated_at DATE
             );
             """
             insert_query = """
-            INSERT INTO labor_productivity (created_at, value, period, description, updated_at, economic_activity_id, region_id)
-            VALUES (TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE, (SELECT id FROM labor_productivity_activity_types WHERE name = %s), 
-            (SELECT id FROM regions WHERE name = %s));
+            INSERT INTO labor_productivity (region, activity_type, created_at, value, period, description, updated_at)
+            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
             """
 
-            self.create_table("labor_productivity_activity_types")
             self.cur.execute(table_labor_productivity)
-
             latest_date = self.get_latest_updated_date("labor_productivity")
 
             for url in urls:
-                activities = set()
                 data = []
                 filtered_data = []
 
                 for row in url["response"]:
                     data.append(row)
-                    activities.add(row["termNames"][1])
-                
-                if not self.is_table_empty("labor_productivity_activity_types"):
-                    self.fill_table("labor_productivity_activity_types", activities)
 
                 for row in data:
                     unit_data = []
                     for period in row["periods"]:
                         date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
                         if date_object > latest_date:
-                            unit_data = [period["date"], period["value"], url["period"], period["name"], row["termNames"][1], row["termNames"][0]]
+                            unit_data = [row["termNames"][0], row["termNames"][1], period["date"], period["value"], url["period"], period["name"]]
                             filtered_data.append(unit_data)
 
                 insert_data = [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in filtered_data]
