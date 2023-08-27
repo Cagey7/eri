@@ -41,7 +41,6 @@ class Automation:
             return response
         else:
             print(f"Ошибка запроса: {response.status_code}")
-            print("Новая попытка")
             sleep(3)
             return self.get_response(url)
     
@@ -52,573 +51,70 @@ class Automation:
         return latest_date if latest_date else datetime.strptime("1.1.1970", "%d.%m.%Y").date()
 
 
-    def insert_gdp(self):
+    def insert_data(self, table_name, index_name, index_period, url, *fields):
         start_time = time.time()
         try:
-            urls = [{"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67").json(), 
-                    "period":"Год"}, 
-                    {"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=9&dics=67").json(), 
-                    "period":"Квартал с накоплением"}]
+            response = self.get_response(url).json()
         except Exception as e:
             print("Произошла ошибка:", str(e))
-        
+            print("Возникла ошибка при получении json")
+
         try:
-            table_gdp = """
-            CREATE TABLE IF NOT EXISTS gdp (
+            full_table_name = f"{table_name}_{index_period}"
+            values_for_table = ""
+            field_names = ""
+            insert_values = ""
+            for field in fields:
+                field_names += f"{field},"
+
+                if field == "created_at":
+                    insert_values += "TO_DATE(%s, 'DD.MM.YYYY'),"
+                else:
+                    insert_values += "%s,"
+                
+                if field == "created_at":
+                    values_for_table += f"{field} DATE,"
+                elif field == "value":
+                    values_for_table += f"{field} NUMERIC,"
+                else:
+                    values_for_table += f"{field} VARCHAR,"
+            
+
+            table = f"""
+            CREATE TABLE IF NOT EXISTS {full_table_name} (
                 id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                created_at DATE,
-                value NUMERIC,
-                period VARCHAR(100),
-                description VARCHAR(200),
+                {values_for_table}
                 updated_at DATE
             );
             """
-
-            insert_query = """
-            INSERT INTO gdp (region, created_at, value, period, description, updated_at)
-            VALUES (%s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
+            self.cur.execute(table)
+            insert_query = f"""
+            INSERT INTO {full_table_name} ({field_names} updated_at) VALUES ({insert_values} CURRENT_DATE);
             """
 
-            self.cur.execute(table_gdp)
-            latest_date = self.get_latest_updated_date("gdp")
+            latest_date = self.get_latest_updated_date(full_table_name)
 
-            for url in urls:
-                insert_data = []
+            insert_data = []
 
-                for row in url["response"]:
-                    unit_data = []
-                    for period in row["periods"]:
-                        if period["value"] == "x":
-                            period["value"] = -1
-                        date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                        if date_object > latest_date:
-                            unit_data = (row["termNames"][0], period["date"], period["value"], url["period"], period["name"])
-                            insert_data.append(unit_data)
-
-                self.cur.executemany(insert_query, insert_data)
+            for row in response:
+                unit_data = []
+                for period in row["periods"]:
+                    if period["value"] == "x":
+                        period["value"] = -1
+                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
+                    if date_object > latest_date:
+                        unit_data = tuple(row["termNames"]) + (period["date"], period["value"], period["name"])
+                        insert_data.append(unit_data)
+            self.cur.executemany(insert_query, insert_data)
             
             self.conn.commit()
             end_time = time.time()
-            print(f"Данные о ВВП загружены за {end_time - start_time:.2f} секунд.")
+            print(f"{index_name} загружен за {index_period} за {end_time - start_time:.2f} секунд.")
         except Exception as e:
             self.conn.rollback()
             print("Произошла ошибка:", str(e))
+            print("Возникла ошибка при загрузке данных")
 
-
-    def insert_labor_productivity(self):
-        start_time = time.time()
-        try:
-            urls = [{"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=7&dics=67,915").json(), 
-                    "period":"Год"}, 
-                    {"response": self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=9&dics=67,915").json(), 
-                    "period":"Квартал с накоплением"}]
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_labor_productivity = """
-            CREATE TABLE IF NOT EXISTS labor_productivity (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(100),
-                created_at DATE, 
-                value BIGINT,
-                period VARCHAR(100),
-                description VARCHAR(100),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO labor_productivity (region, activity_type, created_at, value, period, description, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_labor_productivity)
-            latest_date = self.get_latest_updated_date("labor_productivity")
-
-            for url in urls:
-                insert_data = []
-
-                for row in url["response"]:
-                    unit_data = []
-                    for period in row["periods"]:
-                        if period["value"] == "x":
-                            period["value"] = -1
-                        date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                        if date_object > latest_date:
-                            unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], url["period"], period["name"])
-                            insert_data.append(unit_data)
-
-                self.cur.executemany(insert_query, insert_data)
-
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об производительнсоти труда загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-    
-    
-    def insert_consumer_price_index(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/703076?period=4&dics=67,848,2753&dateIds=982").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-
-        try:
-            table_consumer_price_index = """
-            CREATE TABLE IF NOT EXISTS consumer_price_index (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(200),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO consumer_price_index (region, activity_type, created_at, value, description, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_consumer_price_index)
-            latest_date = self.get_latest_updated_date("consumer_price_index")
-
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][2], period["date"], period["value"], period["name"], row["termNames"][1])
-                        insert_data.append(unit_data)
-            self.cur.executemany(insert_query, insert_data)
-
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе потребительских цен загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_producer_price_index(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/703039?period=4&dics=68,848,2513,2854,3068&dateIds=982").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_producer_price_index = """
-            CREATE TABLE IF NOT EXISTS producer_price_index (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(200),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                periods_correlation VARCHAR(200),
-                countries VARCHAR(200),
-                industrial_products_list VARCHAR(300),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO producer_price_index (region, activity_type, created_at, value, description, periods_correlation, countries, industrial_products_list, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_producer_price_index)
-            latest_date = self.get_latest_updated_date("producer_price_index")
-            
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][3], period["date"], period["value"], period["name"], row["termNames"][1], row["termNames"][2], row["termNames"][4])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе цен производителей загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_soc_imp_goods_price_index(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/18808243?period=2&dics=67,4305,848").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_soc_imp_goods_price_index = """
-            CREATE TABLE IF NOT EXISTS soc_imp_goods_price_index (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                social_important_goods VARCHAR(200),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO soc_imp_goods_price_index (region, social_important_goods, created_at, value, description, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_soc_imp_goods_price_index)
-            latest_date = self.get_latest_updated_date("soc_imp_goods_price_index")
-
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе цен на социально-значимые продовольственные товары загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-    
-
-    def insert_avmon_nom_wages_year(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=7&dics=68,859,776,2813,576").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-            
-        try:    
-            table_avmon_nom_wages_year = """
-            CREATE TABLE IF NOT EXISTS avmon_nom_wages_year (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                terrain_type VARCHAR(100),
-                enterprise_dimension VARCHAR(100),
-                gender VARCHAR(100),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO avmon_nom_wages_year (region, activity_type, created_at, value, description, terrain_type, enterprise_dimension, gender, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_avmon_nom_wages_year)
-            latest_date = self.get_latest_updated_date("avmon_nom_wages_year")
-
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2], row["termNames"][3], row["termNames"][4])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об cреднемесячной номинальной заработной плате по ВЭД за год загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_avmon_nom_wages_quarter(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=5&dics=68,859,681").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_avmon_nom_wages_quarter = """
-            CREATE TABLE IF NOT EXISTS avmon_nom_wages_quarter (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                economic_sectors VARCHAR(100),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO avmon_nom_wages_quarter (region, activity_type, created_at, value, description, economic_sectors, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_avmon_nom_wages_quarter)
-            latest_date = self.get_latest_updated_date("avmon_nom_wages_quarter")
-            
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об cреднемесячной номинальной заработной плате по ВЭД за квартал загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_nom_wages_index_year(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702974?period=7&dics=68,859,2813,576,848").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_nom_wages_index_year = """
-            CREATE TABLE IF NOT EXISTS nom_wages_index_year (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                enterprise_dimension VARCHAR(100),
-                gender VARCHAR(100),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO nom_wages_index_year (region, activity_type, created_at, value, description, enterprise_dimension, gender, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_nom_wages_index_year)
-            latest_date = self.get_latest_updated_date("nom_wages_index_year")
-
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2], row["termNames"][3], row["termNames"][4])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе номинальной заработной платы по ВЭД за год загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_nom_wages_index_quarter(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702974?period=5&dics=68,859,2813,848").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:    
-            table_nom_wages_index_quarter = """
-            CREATE TABLE IF NOT EXISTS nom_wages_index_quarter (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                enterprise_dimension VARCHAR(100),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO nom_wages_index_quarter (region, activity_type, created_at, value, description, enterprise_dimension, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_nom_wages_index_quarter)
-            latest_date = self.get_latest_updated_date("nom_wages_index_quarter")
-            
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2], row["termNames"][3])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе номинальной заработной платы по ВЭД за квартал загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_real_wages_index_year(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702976?period=7&dics=68,859,2813,576,848").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_real_wages_index_year = """
-            CREATE TABLE IF NOT EXISTS real_wages_index_year (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                enterprise_dimension VARCHAR(100),
-                gender VARCHAR(100),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO real_wages_index_year (region, activity_type, created_at, value, description, enterprise_dimension, gender, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_real_wages_index_year)
-            latest_date = self.get_latest_updated_date("real_wages_index_year")
-            
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2], row["termNames"][3], row["termNames"][4])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе реальной заработной платы по ВЭД за год загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-
-
-    def insert_real_wages_index_quarter(self):
-        start_time = time.time()
-        try:
-            response = self.get_response("https://taldau.stat.gov.kz/ru/Api/GetIndexData/702976?period=5&dics=68,859,2813,848").json()
-        except Exception as e:
-            print("Произошла ошибка:", str(e))
-        
-        try:
-            table_real_wages_index_quarter = """
-            CREATE TABLE IF NOT EXISTS real_wages_index_quarter (
-                id SERIAL PRIMARY KEY,
-                region VARCHAR(100),
-                activity_type VARCHAR(300),
-                created_at DATE, 
-                value FLOAT,
-                description VARCHAR(200),
-                enterprise_dimension VARCHAR(100),
-                periods_correlation VARCHAR(200),
-                updated_at DATE
-            );
-            """
-            insert_query = """
-            INSERT INTO real_wages_index_quarter (region, activity_type, created_at, value, description, enterprise_dimension, periods_correlation, updated_at)
-            VALUES (%s, %s, TO_DATE(%s, 'DD.MM.YYYY'), %s, %s, %s, %s, CURRENT_DATE);
-            """
-
-            self.cur.execute(table_real_wages_index_quarter)
-            latest_date = self.get_latest_updated_date("real_wages_index_quarter")
-
-            insert_data = []
-
-            for row in response:
-                unit_data = []
-                for period in row["periods"]:
-                    if period["value"] == "x":
-                        period["value"] = -1
-                    date_object = datetime.strptime(period["date"], "%d.%m.%Y").date()
-                    if date_object > latest_date:
-                        unit_data = (row["termNames"][0], row["termNames"][1], period["date"], period["value"], period["name"], row["termNames"][2], row["termNames"][3])
-                        insert_data.append(unit_data)
-
-            self.cur.executemany(insert_query, insert_data)
-                
-            self.conn.commit()
-            end_time = time.time()
-            print(f"Данные об индексе реальной заработной платы по ВЭД за квартал загружены за {end_time - start_time:.2f} секунд.")
-        except Exception as e:
-            self.conn.rollback()
-            print("Произошла ошибка:", str(e))
-            
 
     def db_disconnect(self):
         if self.conn is not None:
@@ -628,22 +124,59 @@ class Automation:
             print("Отключено от базы данных.")
         else:
             print("Уже отключено от базы данных.")
-    
+
 
     def collect_data_years(self):
-        self.insert_gdp()
-        self.insert_labor_productivity()
-        self.insert_consumer_price_index()
-        self.insert_producer_price_index()
-        self.insert_soc_imp_goods_price_index()
-        self.insert_avmon_nom_wages_year()
-        self.insert_avmon_nom_wages_quarter()
-        self.insert_nom_wages_index_year()
-        self.insert_nom_wages_index_quarter()
-        self.insert_real_wages_index_year()
-        self.insert_real_wages_index_quarter()
+        self.insert_data("labor_productivity", "Производительность труда", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=7&dics=67,915", 
+                         "region", "activity_type", "created_at", "value", "description")
+        self.insert_data("labor_productivity", "Производительность труда", "quarter_accum", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/4023003?period=9&dics=67,915", 
+                         "region", "activity_type", "created_at", "value", "description")
+        self.insert_data("gdp", "ВВП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("gdp", "ВВП", "quarter_accum", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=9&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("consumer_price_index", "Индекс потребительских цен", "month",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703076?period=4&dics=67,848,2753&dateIds=982",
+                        "region", "periods_correlation", "activity_type", "created_at", "value", "description")
+        self.insert_data("producer_price_index", "Индекс цен производителей", "month",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703039?period=4&dics=68,848,2513,2854,3068&dateIds=982",
+                        "region", "periods_correlation", "countries", "activity_type", "industrial_products_list", "created_at", "value", "description")
+        self.insert_data("soc_imp_goods_price_index", "Индекс цен на социально-значимые потребительские товары", "week",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/18808243?period=2&dics=67,4305,848",
+                        "region", "social_important_goods", "periods_correlation", "created_at", "value", "description")
+        self.insert_data("avmon_nom_wages", "Среднемесячная номинальная заработная плата", "year",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=7&dics=68,859,776,2813,576",
+                        "region", "activity_type", "area_type", "enterprise_dimension", "gender", "created_at", "value", "description")
+        self.insert_data("avmon_nom_wages", "Среднемесячная номинальная заработная плата", "quarter",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=5&dics=68,859,681",
+                        "region", "activity_type", "economic_sectors", "created_at", "value", "description")
+        self.insert_data("nom_wages_index", "Индекс номинальной заработной платы", "year",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702974?period=7&dics=68,859,2813,576,848",
+                        "region", "activity_type", "enterprise_dimension", "gender", "periods_correlation", "created_at", "value", "description")
+        self.insert_data("nom_wages_index", "Индекс номинальной заработной платы", "quarter",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702974?period=5&dics=68,859,2813,848",
+                        "region", "activity_type", "enterprise_dimension", "periods_correlation", "created_at", "value", "description")
+        self.insert_data("real_wages_index", "Индекс реальной заработной платы", "year",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702976?period=7&dics=68,859,2813,576,848",
+                        "region", "activity_type", "enterprise_dimension", "gender", "periods_correlation", "created_at", "value", "description")
+        self.insert_data("real_wages_index", "Индекс реальной заработной платы", "quarter",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702976?period=5&dics=68,859,2813,848",
+                        "region", "activity_type", "enterprise_dimension", "periods_correlation", "created_at", "value", "description")
+        self.insert_data("industry_specialization_sme", "Отраслевая специализация субъектов МСП", "year",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/19722414?period=7&dics=67,915,90",
+                        "region", "activity_type", "enterprise_dimension", "created_at", "value", "description")
+        self.insert_data("labor_statistics", "Статистика труда", "year",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702840?period=7&dics=67,915,749,576,1773,1793",
+                        "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        self.insert_data("labor_statistics", "Статистика труда", "quarter",
+                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702840?period=5&dics=67,2353,749,576,1773,1793",
+                        "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
 
-
+        
     def collect_data_quarters(self):
         pass
 
@@ -656,6 +189,6 @@ class Automation:
         pass
 
 
-automation = Automation("statistics", "postgres", "123456")
+automation = Automation("testtest", "postgres", "123456")
 automation.collect_data_years()
 automation.db_disconnect()
