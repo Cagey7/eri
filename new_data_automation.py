@@ -175,6 +175,82 @@ class Automation:
         self.insert_data("labor_statistics", "Статистика труда", "quarter",
                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702840?period=5&dics=67,2353,749,576,1773,1793",
                         "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        
+        self.insert_data("work_force", "Рабочая сила", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702835?period=7&dics=67,749,576,1773,1793", 
+                         "region", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        self.insert_data("work_force", "Рабочая сила", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702835?period=5&dics=67,749,576,1773,1793", 
+                         "region", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+    
+        self.insert_data("wage_earners", "Наемные работники", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702882?period=7&dics=67,915,749,576,1773,1793", 
+                         "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        self.insert_data("wage_earners", "Наемные работники", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702882?period=5&dics=67,915,749,576,1773,1793", 
+                         "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        
+        self.insert_data("self_employed", "Самозанятые", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702935?period=7&dics=67,915,749,576,1773,1793", 
+                         "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        self.insert_data("self_employed", "Самозанятые", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702935?period=5&dics=67,2353,749,576,1773,1793", 
+                         "region", "activity_type", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        
+        self.insert_data("unemployed_number", "Численность безработных", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702943?period=7&dics=67,749,576,1773,1793", 
+                         "region", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        self.insert_data("unemployed_number", "Численность безработных", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702943?period=5&dics=67,749,576,1773,1793", 
+                         "region", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        
+        self.insert_data("unemployment_rate", "Уровень безработицы", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702944?period=7&dics=67,749,576,1773,1793", 
+                         "region", "area_type", "gender", "education_level", "age_intervals", "created_at", "value", "description")
+        
+        self.insert_data("average_wages", "Средняя заработная плата", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=7&dics=68,859,776,2813,576", 
+                         "region", "activity_type", "area_type", "enterprise_dimension", "gender", "created_at", "value", "description")
+        self.insert_data("average_wages", "Средняя заработная плата", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/702972?period=5&dics=68,859,681", 
+                         "region", "activity_type", "economic_sectors", "created_at", "value", "description")
+        
+        self.insert_data("avcap_pop_nom_income", "Среднедушевые номинальные денежные доходы населения", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/704447?period=5&dics=67", 
+                         "region", "created_at", "value", "description")
+        
+        self.insert_data("pop_income_below_subsistence", "Доля населения, имеющего доходы ниже величины прожиточного минимума", "quarter", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/704498?period=5&dics=67,749", 
+                         "region", "area_type", "created_at", "value", "description")
+        
+        self.insert_data("share_sme", "Доля МСП в ВПП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/19824647?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("share_sme_small", "Доля малых МСП в ВПП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/20380630?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("share_sme_medium", "Доля средних МСП в ВПП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/20380634?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("registered_sme_number", "Количество зарегистрированных субъектов МСП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/19722414?period=7&dics=67,915,90", 
+                         "region", "activity_type", "enterprise_dimension", "created_at", "value", "description")
+        self.insert_data("operating_sme_number", "Количество действующих субъектов МСП", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/19722421?period=7&dics=67,915,90", 
+                         "region", "activity_type", "enterprise_dimension", "created_at", "value", "description")
+        self.insert_data("employees_number", "Численность занятых", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/18714472?period=7&dics=67,915,90", 
+                         "region", "activity_type", "enterprise_dimension", "created_at", "value", "description")
+        self.insert_data("production_output", "Выпуск продукции", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/701176?period=7&dics=67,915,90", 
+                         "region", "activity_type", "enterprise_dimension", "created_at", "value", "description")
+        self.insert_data("entities_led_by_under_29", "Количество действующих юр.лиц, руководителями которых является молодежь до 29 лет ", "quarter_accum", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/20612386?period=9&dics=67,915,749,576", 
+                         "region", "activity_type", "area_type", "gender", "created_at", "value", "description")
+        self.insert_data("entities_led_by_under_35", "Количество действующих юр.лиц, руководителями которых является молодежь до 35 лет", "quarter_accum", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/77218052?period=9&dics=67,915,749,576", 
+                         "region", "activity_type", "area_type", "gender", "created_at", "value", "description")
+        
 
         
     def collect_data_quarters(self):
