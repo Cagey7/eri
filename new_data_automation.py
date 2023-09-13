@@ -140,11 +140,11 @@ class Automation:
                          "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=9&dics=67", 
                          "region", "created_at", "value", "description")
         self.insert_data("consumer_price_index", "Индекс потребительских цен", "month",
-                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703076?period=4&dics=67,848,2753&dateIds=982",
-                        "region", "periods_correlation", "activity_type", "created_at", "value", "description")
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703076?period=4&dics=67,848,2753",
+                         "region", "periods_correlation", "activity_type", "created_at", "value", "description")
         self.insert_data("producer_price_index", "Индекс цен производителей", "month",
-                        "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703039?period=4&dics=68,848,2513,2854,3068&dateIds=982",
-                        "region", "periods_correlation", "countries", "activity_type", "industrial_products_list", "created_at", "value", "description")
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703039?period=4&dics=68,848,2513,2854,3068",
+                         "region", "periods_correlation", "countries", "activity_type", "industrial_products_list", "created_at", "value", "description")
         self.insert_data("soc_imp_goods_price_index", "Индекс цен на социально-значимые потребительские товары", "week",
                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/18808243?period=2&dics=67,4305,848",
                         "region", "social_important_goods", "periods_correlation", "created_at", "value", "description")
@@ -250,6 +250,29 @@ class Automation:
         self.insert_data("entities_led_by_under_35", "Количество действующих юр.лиц, руководителями которых является молодежь до 35 лет", "quarter_accum", 
                          "https://taldau.stat.gov.kz/ru/Api/GetIndexData/77218052?period=9&dics=67,915,749,576", 
                          "region", "activity_type", "area_type", "gender", "created_at", "value", "description")
+        
+
+        self.insert_data("grp", "Валовый региональный продукт", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709379?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("grp_volume_index", "ИФО для валового внутреннего продукта", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2979005?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("grp_per_capita", "Валовый региональный продукт на душу населения", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/2709380?period=7&dics=67", 
+                         "region", "created_at", "value", "description")
+        self.insert_data("gop_agriculture_forest_fish", "Валовой выпуск продукции (услуг) сельского, лесного и рыбного хозяйства", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/701188?period=7&dics=67,773", 
+                         "region", "price_measurement", "created_at", "value", "description")
+        self.insert_data("industrial_production_volumes", "Объемы промышленного производства", "year", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/701592?period=7&dics=68,4303", 
+                         'region', "activity_type", "created_at", "value", "description")
+        self.insert_data("population_of_kazakhstan", "Численность населения Республики Казахстан", "год", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703831?period=7&dics=67,76", 
+                         "region", "nationality", "created_at", "value", "description")
+        self.insert_data("population_year_beginning", "Численность населения на начало года", "год", 
+                         "https://taldau.stat.gov.kz/ru/Api/GetIndexData/703831?period=7&dics=67,749,576,1433", 
+                         'region', "area_type", "gender", "population_group", "created_at", "value", "description")
         
 
         
